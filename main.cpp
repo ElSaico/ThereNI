@@ -6,6 +6,12 @@
 #include <SDL/SDL.h>
 
 #define D2R 0.0174532925
+#define WAVE_SAMPLES 16
+#define WAVE_FREQUENCY 285
+
+#define SCREEN_WIDTH 400
+#define SCREEN_HEIGHT 400
+#define SCREEN_BPP 16
 
 ALuint buf_wave[1], src_wave[1];
 
@@ -29,18 +35,13 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 	uint8_t* wave;
-	int samples, frequency;
-	std::cout << "Which frequency? ";
-	std::cin >> frequency;
-	std::cout << "How many samples for the wave? [try me between 2 and 16] ";
-	std::cin >> samples;
-	ALsizei freq = samples * frequency;
+	ALsizei freq = WAVE_SAMPLES * WAVE_FREQUENCY;
 	ALsizei size = freq;
 	if (!(wave = new uint8_t[size]))
 		return -2;
 	
 	for (int i = 0; i < size; ++i) {
-		float x = i * 360.0 / (float)samples;
+		float x = i * 360.0 / (float)WAVE_SAMPLES;
 		wave[i] = sin(x * D2R) * 128 + 128;
 	}
 	ALvoid* data = wave;
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]) {
 	alSourcei(src_wave[0], AL_LOOPING, AL_TRUE);
 	alSourcePlay(src_wave[0]);
 	ALfloat pitch = 1.0, gain = 1.0;
-	SDL_SetVideoMode(400, 300, 16, SDL_SWSURFACE);
+	SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_BPP, SDL_SWSURFACE);
 	SDL_Event e;
 	while (true) {
 		while (SDL_PollEvent(&e)) {
@@ -66,26 +67,11 @@ int main(int argc, char* argv[]) {
 				alcCloseDevice(dev);
 				SDL_Quit();
 				return 0;
-			case SDL_KEYDOWN:
-				switch (e.key.keysym.sym) {
-				case SDLK_UP:
-					pitch += 0.1;
-					alSourcef(src_wave[0], AL_PITCH, pitch);
-					break;
-				case SDLK_DOWN:
-					pitch -= 0.1;
-					alSourcef(src_wave[0], AL_PITCH, pitch);
-					break;
-				case SDLK_LEFT:
-					gain -= 0.1;
-					alSourcef(src_wave[0], AL_GAIN, gain);
-					break;
-				case SDLK_RIGHT:
-					gain += 0.1;
-					alSourcef(src_wave[0], AL_GAIN, gain);
-					break;
-				default: break;
-				}
+			case SDL_MOUSEMOTION:
+				pitch = e.motion.y / 400.0;
+				gain = (300 - e.motion.x) / 300.0;
+				alSourcef(src_wave[0], AL_PITCH, pitch);
+				alSourcef(src_wave[0], AL_GAIN, gain);
 				break;
 			default: break;
 			}
