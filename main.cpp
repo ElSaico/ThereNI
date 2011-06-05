@@ -21,7 +21,6 @@ int main(int argc, char* argv[]) {
 		std::cerr << "[erro] SDL_Init" << std::endl;
 		exit(1);
 	}
-	SDL_SetVideoMode(400, 300, 16, SDL_SWSURFACE);
 	
 	alGetError(); // suave na nave
 	alGenBuffers(1, buf_wave);
@@ -55,6 +54,7 @@ int main(int argc, char* argv[]) {
 	alSourcei(src_wave[0], AL_LOOPING, AL_TRUE);
 	alSourcePlay(src_wave[0]);
 	ALfloat pitch = 1.0, gain = 1.0;
+	SDL_SetVideoMode(400, 300, 16, SDL_SWSURFACE);
 	SDL_Event e;
 	while (true) {
 		while (SDL_PollEvent(&e)) {
