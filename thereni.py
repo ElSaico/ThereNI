@@ -10,14 +10,14 @@ simpleOSC.initOSCClient("127.0.0.1", 8765)
 depth_win = pyglet.window.Window()
 video_win = pyglet.window.Window()
 
-depth = pyglet.image.ImageData(640, 480, "RGB", numpy.empty((640, 480)))
+depth = pyglet.image.ImageData(640, 480, "I",   numpy.empty((640, 480)))
 video = pyglet.image.ImageData(640, 480, "RGB", numpy.empty((640, 480)))
 
 @depth_win.event
 def on_draw():
 	depth_win.clear()
 	feed, _ = freenect.sync_get_depth()
-	depth.set_data("RGB", -640*2, feed.tostring())
+	depth.set_data("I", -640, feed.astype(numpy.uint8).tostring())
 	depth.blit(0, 0)
 
 @video_win.event
