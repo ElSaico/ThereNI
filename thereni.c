@@ -95,11 +95,18 @@ void set_antennas(int event, int x, int y, int flags, void* parms) {
 	}
 }
 
+float calculate_pitch(IplImage* depth) {
+	return 440.0;
+}
+
+float calculate_volume(IplImage* depth) {
+	return 1.0;
+}
+
 int main(int argc, char **argv) {
-	float pitch = 440.0, volume = 1.0;
-	int k, show_antennas = 0;
+	float pitch, volume;
 	lo_address chuck = lo_address_new(NULL, "8765");
-	int mouse_status[2] = {0, 0};
+	int k, mouse_status[2] = {0, 0};
 	cvNamedWindow("RGB", CV_WINDOW_AUTOSIZE);
 	cvNamedWindow("Depth", CV_WINDOW_AUTOSIZE);
 	cvSetMouseCallback("Depth", set_antennas, &mouse_status);
@@ -121,15 +128,12 @@ int main(int argc, char **argv) {
 			case 's': pitch_z += 10; break;
 			case 'a': volume_z += 10; break;
 			case 'd': volume_z -= 10; break;
-			case 'x': show_antennas = 1 - show_antennas; break;
 			default: printf("%d\n", k);
 		}
-		if (show_antennas) {
-			showAntennas(depth);
-			//pitch = calculate_pitch();
-			//volume = calculate_volume();
-			lo_send(chuck, "/update", "ff", pitch, volume);
-		}
+		showAntennas(depth);
+		pitch = calculate_pitch(depth);
+		volume = calculate_volume(depth);
+		lo_send(chuck, "/update", "ff", pitch, volume);
 		cvShowImage("RGB", image);
 		cvShowImage("Depth", GlViewColor(depth));
 	}
