@@ -2,7 +2,7 @@
 #include "libfreenect_sync.h"
 #include "libfreenect_cv.h"
 
-IplImage *freenect_sync_get_depth_cv(int index)
+IplImage *freenect_sync_get_depth_cv(uint16_t** orig, int index)
 {
 	static IplImage *image = 0;
 	static char *data = 0;
@@ -10,6 +10,8 @@ IplImage *freenect_sync_get_depth_cv(int index)
 	unsigned int timestamp;
 	if (freenect_sync_get_depth((void**)&data, &timestamp, index, FREENECT_DEPTH_11BIT))
 	    return NULL;
+	if (*orig != NULL)
+		memmove(*orig, data, 640*480*2);
 	cvSetData(image, data, 640*2);
 	return image;
 }
