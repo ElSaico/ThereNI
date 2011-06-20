@@ -1,6 +1,7 @@
 #include <lo/lo.h>
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
+#include <math.h>
 #include <stdio.h>
 
 #include "libfreenect_cv.h"
@@ -8,7 +9,8 @@
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define X_BY_DEPTH(x,z) (((x)-320)*((z)-10)*0.0021*(640.0/480.0))
 #define Y_BY_DEPTH(y,z) (((y)-240)*((z)-10)*0.0021)
-#define DEPTH_TO_CM(x) ((x) >= 2047 ? 0 : (100.0 / ((x) * -0.0030711016 + 3.3309495161)))
+//#define DEPTH_TO_CM(x) (100.0 / ((x) * -0.0030711016 + 3.3309495161))
+#define DEPTH_TO_CM(x) (123.6 * tan((x)/2842.5 + 1.1863))
 
 int pitch_x = 400;
 int pitch_y1 = 100;
@@ -100,23 +102,21 @@ void set_antennas(int event, int x, int y, int flags, void* parms) {
 	}
 }
 
-// 40000 / x^3 (em polegadas)
-// 62500 / x^3 em cm?
-float calculate_pitch(uint16_t* depth) {
+void calculate_distances(uint16_t* depth, float* pitch, float* volume) {
 	int i;
-	float diff_x, diff_z, d0, distance = 999;
-	//for (i = 640*pitch_y1; i < 640*pitch_y0; i++) {
+	double diff_x, diff_y, diff_zp, diff_zv, dp = 999, dv = 999;
 	for (i = 0; i < 640*480; i++) {
 		diff_x = X_BY_DEPTH(pitch_x,pitch_z) - (X_BY_DEPTH(i%640,pitch_z));
-		diff_z = DEPTH_TO_CM(pitch_z) - DEPTH_TO_CM(depth[i]);
-		d0 = sqrt(diff_x*diff_x+diff_z*diff_z);
-		distance = min(distance, sqrt(d0));
+		diff_zp = DEPTH_TO_CM(pitch_z) - DEPTH_TO_CM(depth[i]);
+		dp = min(dp, sqrt(diff_x*diff_x+diff_zp*diff_zp));
+		
+		diff_y = Y_BY_DEPTH(volume_y,volume_z) - (Y_BY_DEPTH(i/640,volume_z));
+		diff_zv = DEPTH_TO_CM(volume_z) - DEPTH_TO_CM(depth[i]);
+		dv = min(dv, sqrt(diff_y*diff_y+diff_zv*diff_zv));
 	}
-	return 62500 / pow(distance, 3);
-}
-
-float calculate_volume(uint16_t* depth) {
-	return 1.0;
+	printf("%lf %lf\n", dp, dv);
+	*pitch = 500000 / pow(dp, 3);
+	*volume = 1;
 }
 
 int main(int argc, char **argv) {
@@ -141,16 +141,16 @@ int main(int argc, char **argv) {
 		}
 		switch (k) {
 			case  -1: break;
-			case 'w': pitch_z -= 10; break;
-			case 's': pitch_z += 10; break;
+			case 'w': pitch_z += 10; break;
+			case 's': pitch_z -= 10; break;
 			case 'a': volume_z += 10; break;
 			case 'd': volume_z -= 10; break;
 			default: printf("%d\n", k);
 		}
 		showAntennas(depth);
-		pitch = calculate_pitch(depth_buf);
-		volume = calculate_volume(depth_buf);
-		lo_send(chuck, "/update", "ff", pitch, volume);
+		calculate_distances(depth_buf, &pitch, &volume);
+		printf("%f %f\n", 100*pitch, volume);
+		lo_send(chuck, "/update", "ff", 100*pitch, volume);
 		cvShowImage("RGB", image);
 		cvShowImage("Depth", GlViewColor(depth));
 	}
