@@ -5,6 +5,11 @@
 
 #include "libfreenect_cv.h"
 
+#define min(x,y) ((x) < (y) ? (x) : (y))
+#define X_BY_DEPTH(x,z) (((x)-320)*((z)-10)*0.0021*(640.0/480.0))
+#define Y_BY_DEPTH(y,z) (((y)-240)*((z)-10)*0.0021)
+#define DEPTH_TO_CM(x) ((x) >= 2047 ? 0 : (100.0 / ((x) * -0.0030711016 + 3.3309495161)))
+
 int pitch_x = 400;
 int pitch_y1 = 100;
 int pitch_y0 = 300;
@@ -95,11 +100,22 @@ void set_antennas(int event, int x, int y, int flags, void* parms) {
 	}
 }
 
-float calculate_pitch(IplImage* depth) {
-	return 440.0;
+// 40000 / x^3 (em polegadas)
+// 62500 / x^3 em cm?
+float calculate_pitch(uint16_t* depth) {
+	int i;
+	float diff_x, diff_z, d0, distance = 999;
+	//for (i = 640*pitch_y1; i < 640*pitch_y0; i++) {
+	for (i = 0; i < 640*480; i++) {
+		diff_x = X_BY_DEPTH(pitch_x,pitch_z) - (X_BY_DEPTH(i%640,pitch_z));
+		diff_z = DEPTH_TO_CM(pitch_z) - DEPTH_TO_CM(depth[i]);
+		d0 = sqrt(diff_x*diff_x+diff_z*diff_z);
+		distance = min(distance, sqrt(d0));
+	}
+	return 62500 / pow(distance, 3);
 }
 
-float calculate_volume(IplImage* depth) {
+float calculate_volume(uint16_t* depth) {
 	return 1.0;
 }
 
@@ -107,6 +123,7 @@ int main(int argc, char **argv) {
 	float pitch, volume;
 	lo_address chuck = lo_address_new(NULL, "8765");
 	int k, mouse_status[2] = {0, 0};
+	uint16_t* depth_buf = (uint16_t*) malloc(640*480*2);
 	cvNamedWindow("RGB", CV_WINDOW_AUTOSIZE);
 	cvNamedWindow("Depth", CV_WINDOW_AUTOSIZE);
 	cvSetMouseCallback("Depth", set_antennas, &mouse_status);
@@ -117,7 +134,7 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 		cvCvtColor(image, image, CV_RGB2BGR);
-		IplImage *depth = freenect_sync_get_depth_cv(0);
+		IplImage *depth = freenect_sync_get_depth_cv(&depth_buf, 0);
 		if (!depth) {
 			fprintf(stderr, "Error: Kinect not connected?\n");
 			return -1;
@@ -131,8 +148,8 @@ int main(int argc, char **argv) {
 			default: printf("%d\n", k);
 		}
 		showAntennas(depth);
-		pitch = calculate_pitch(depth);
-		volume = calculate_volume(depth);
+		pitch = calculate_pitch(depth_buf);
+		volume = calculate_volume(depth_buf);
 		lo_send(chuck, "/update", "ff", pitch, volume);
 		cvShowImage("RGB", image);
 		cvShowImage("Depth", GlViewColor(depth));
