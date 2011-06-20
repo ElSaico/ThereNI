@@ -71,11 +71,6 @@ IplImage *GlViewColor(IplImage *depth) {
 	return image;
 }
 
-void showAntennas(IplImage* im) {
-	cvLine(im, cvPoint(pitch_x, pitch_y0), cvPoint(pitch_x, pitch_y1), cvRealScalar(pitch_z), 5, 8, 0);
-	cvLine(im, cvPoint(volume_x0, volume_y), cvPoint(volume_x1, volume_y), cvRealScalar(volume_z), 5, 8, 0);
-}
-
 void set_antennas(int event, int x, int y, int flags, void* parms) {
 	int* mouse_status = (int*)parms;
 	switch (event) {
@@ -115,7 +110,7 @@ void calculate_distances(uint16_t* depth, float* pitch, float* volume) {
 		dv = min(dv, sqrt(diff_y*diff_y+diff_zv*diff_zv));
 	}
 	printf("%lf %lf\n", dp, dv);
-	*pitch = 500000 / pow(dp, 3);
+	*pitch = 50000 / dp;
 	*volume = 1;
 }
 
@@ -147,10 +142,16 @@ int main(int argc, char **argv) {
 			case 'd': volume_z -= 10; break;
 			default: printf("%d\n", k);
 		}
-		showAntennas(depth);
+		cvLine(depth, cvPoint(pitch_x, pitch_y0),
+		       cvPoint(pitch_x, pitch_y1), cvRealScalar(pitch_z), 5, 8, 0);
+		cvLine(depth, cvPoint(volume_x0, volume_y),
+		       cvPoint(volume_x1, volume_y), cvRealScalar(volume_z), 5, 8, 0);
 		calculate_distances(depth_buf, &pitch, &volume);
-		printf("%f %f\n", 100*pitch, volume);
-		lo_send(chuck, "/update", "ff", 100*pitch, volume);
+		printf("%f %f\n", pitch, volume);
+		if (pitch >= 10 && pitch <= 1000)
+			lo_send(chuck, "/update", "ff", pitch, volume);
+		else
+			lo_send(chuck, "/update", "ff", 0.0, 0.0);
 		cvShowImage("RGB", image);
 		cvShowImage("Depth", GlViewColor(depth));
 	}
