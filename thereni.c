@@ -99,14 +99,16 @@ void set_antennas(int event, int x, int y, int flags, void* parms) {
 
 void calculate_distances(uint16_t* depth, float* pitch, float* volume) {
 	int i;
-	double diff_x, diff_y, diff_zp, diff_zv, dp = 999, dv = 999;
+	double diff_x, diff_y, diff_zp, diff_zv, dp = 999, dv = 999, dpz, dvz;
 	for (i = 0; i < 640*480; i++) {
-		diff_x = X_BY_DEPTH(pitch_x,pitch_z) - (X_BY_DEPTH(i%640,pitch_z));
-		diff_zp = DEPTH_TO_CM(pitch_z) - DEPTH_TO_CM(depth[i]);
+		dpz = DEPTH_TO_CM(pitch_z);
+		diff_x = X_BY_DEPTH(pitch_x,dpz) - (X_BY_DEPTH(i%640,dpz));
+		diff_zp = dpz - DEPTH_TO_CM(depth[i]);
 		dp = min(dp, sqrt(diff_x*diff_x+diff_zp*diff_zp));
 		
-		diff_y = Y_BY_DEPTH(volume_y,volume_z) - (Y_BY_DEPTH(i/640,volume_z));
-		diff_zv = DEPTH_TO_CM(volume_z) - DEPTH_TO_CM(depth[i]);
+		dvz = DEPTH_TO_CM(pitch_z);
+		diff_y = Y_BY_DEPTH(volume_y,dvz) - (Y_BY_DEPTH(i/640,dvz));
+		diff_zv = dvz - DEPTH_TO_CM(depth[i]);
 		dv = min(dv, sqrt(diff_y*diff_y+diff_zv*diff_zv));
 	}
 	printf("%lf %lf\n", dp, dv);
