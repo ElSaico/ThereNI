@@ -72,7 +72,8 @@ IplImage *GlViewColor(IplImage *depth) {
 }
 
 void set_antennas(int event, int x, int y, int flags, void* parms) {
-	int* mouse_status = (int*)parms;
+	uint16_t* mouse_status = ((uint16_t**)parms)[0];
+	uint16_t* depth = ((uint16_t**)parms)[1];
 	switch (event) {
 		case CV_EVENT_LBUTTONUP:
 			if (mouse_status[0] == 0) {
@@ -93,6 +94,10 @@ void set_antennas(int event, int x, int y, int flags, void* parms) {
 				volume_x1 = x;
 			}
 			mouse_status[1] = 1 - mouse_status[1];
+			break;
+		case CV_EVENT_MBUTTONUP:
+			pitch_z = depth[640*y+x];
+			volume_z = pitch_z;
 			break;
 	}
 }
@@ -119,11 +124,13 @@ void calculate_distances(uint16_t* depth, float* pitch, float* volume) {
 int main(int argc, char **argv) {
 	float pitch, volume;
 	lo_address chuck = lo_address_new(NULL, "8765");
-	int k, mouse_status[2] = {0, 0};
+	int k;
+	uint16_t mouse_status[2] = {0, 0};
 	uint16_t* depth_buf = (uint16_t*) malloc(640*480*2);
+	uint16_t* params[] = {mouse_status, depth_buf};
 	cvNamedWindow("RGB", CV_WINDOW_AUTOSIZE);
 	cvNamedWindow("Depth", CV_WINDOW_AUTOSIZE);
-	cvSetMouseCallback("Depth", set_antennas, &mouse_status);
+	cvSetMouseCallback("Depth", set_antennas, params);
 	while ((k = cvWaitKey(10)) != '\n') {
 		IplImage *image = freenect_sync_get_rgb_cv(0);
 		if (!image) {
