@@ -6,6 +6,8 @@
 
 #include "libfreenect_cv.h"
 
+#define DEBUG 1
+
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define X_BY_DEPTH(x,z) (((x)-320)*((z)-10)*0.0021*(640.0/480.0))
 #define Y_BY_DEPTH(y,z) (((y)-240)*((z)-10)*0.0021)
@@ -71,6 +73,17 @@ IplImage *GlViewColor(IplImage *depth) {
 	return image;
 }
 
+void set_upper_image(uint16_t* depth, IplImage* dest) {
+	cvSet(dest, cvScalar(0,0,0,0), NULL);
+	int i, x, z;
+	for (i = 0; i < 640*480; ++i) {
+		x = i % 640;
+		z = depth[x] / 2;
+		dest->imageData[640*z+x]= 255;
+	}
+	dest->imageData[320*pitch_z+pitch_x] = 192;
+}
+
 void set_antennas(int event, int x, int y, int flags, void* parms) {
 	uint16_t* mouse_status = ((uint16_t**)parms)[0];
 	uint16_t* depth = ((uint16_t**)parms)[1];
@@ -116,7 +129,7 @@ void calculate_distances(uint16_t* depth, float* pitch, float* volume) {
 		diff_zv = dvz - DEPTH_TO_CM(depth[i]);
 		dv = min(dv, sqrt(diff_y*diff_y+diff_zv*diff_zv));
 	}
-	printf("%lf %lf\n", dp, dv);
+	//printf("%lf %lf\n", dp, dv);
 	*pitch = 50000 / dp;
 	*volume = 1;
 }
@@ -128,6 +141,11 @@ int main(int argc, char **argv) {
 	uint16_t mouse_status[2] = {0, 0};
 	uint16_t* depth_buf = (uint16_t*) malloc(640*480*2);
 	uint16_t* params[] = {mouse_status, depth_buf};
+#ifdef DEBUG
+	IplImage* upper = cvCreateImage(cvSize(640,2048),8,1);
+	IplImage* side = cvCreateImage(cvSize(1024,480),8,1);
+#endif
+
 	cvNamedWindow("RGB", CV_WINDOW_AUTOSIZE);
 	cvNamedWindow("Depth", CV_WINDOW_AUTOSIZE);
 	cvSetMouseCallback("Depth", set_antennas, params);
@@ -156,13 +174,19 @@ int main(int argc, char **argv) {
 		cvLine(depth, cvPoint(volume_x0, volume_y),
 		       cvPoint(volume_x1, volume_y), cvRealScalar(volume_z), 5, 8, 0);
 		calculate_distances(depth_buf, &pitch, &volume);
-		printf("%f %f\n", pitch, volume);
+		//printf("%f %f\n", pitch, volume);
 		if (pitch >= 10 && pitch <= 1000)
 			lo_send(chuck, "/update", "ff", pitch, volume);
 		else
 			lo_send(chuck, "/update", "ff", 0.0, 0.0);
+#ifdef DEBUG
+		set_upper_image(depth_buf, upper);
+#endif
 		cvShowImage("RGB", image);
 		cvShowImage("Depth", GlViewColor(depth));
+#ifdef DEBUG
+		cvShowImage("Depth (up)", upper);
+#endif
 	}
 	return 0;
 }
